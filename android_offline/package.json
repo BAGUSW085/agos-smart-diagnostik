@@ -1,0 +1,18 @@
+{
+  "name": "agos-smart-diagnostik-offline",
+  "version": "1.2.0",
+  "private": true,
+  "description": "AGOS Smart Diagnostik — Aplikasi Android Offline Bengkel AI",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/input.css -o ./www/css/app.css --minify",
+    "cap:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "tailwindcss": "^3.4.14"
+  }
+}
