@@ -1,0 +1,9 @@
+{
+  "appId": "com.agos.smartdiagnostik",
+  "appName": "AGOS Diagnostik",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,86 @@
+name: Build Android APK Offline - AGOS Smart Diagnostik
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - apk-offline
+
+jobs:
+  build-offline-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12 (Export Data, Ikon APK & Verifikasi)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python Build Helper (pydantic & pillow)
+        run: python3 -m pip install --quiet pydantic pillow
+
+      - name: Export Offline JSON Data & Bundle Local FontAwesome
+        run: |
+          python3 android_offline/tools/export_data.py
+          mkdir -p android_offline/www/css android_offline/www/webfonts
+          FA="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1"
+          curl -sSL "$FA/css/all.min.css" -o android_offline/www/css/fontawesome.min.css
+          curl -sSL "$FA/webfonts/fa-solid-900.woff2" -o android_offline/www/webfonts/fa-solid-900.woff2
+          curl -sSL "$FA/webfonts/fa-regular-400.woff2" -o android_offline/www/webfonts/fa-regular-400.woff2
+          curl -sSL "$FA/webfonts/fa-brands-400.woff2" -o android_offline/www/webfonts/fa-brands-400.woff2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies & Build Tailwind CSS
+        working-directory: android_offline
+        run: |
+          npm install
+          npx tailwindcss -i ./src/input.css -o ./www/css/app.css --minify
+
+      - name: Set up Java Development Kit (JDK 21 for Capacitor 6)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Generate & Sync Capacitor Android Project + Custom Logo Icon
+        working-directory: android_offline
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+          python3 tools/patch_android_project.py
+
+      - name: Build Debug APK (Siap Pasang di HP)
+        working-directory: android_offline/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../AGOS-Smart-Diagnostik-Offline.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agos-diagnostik-offline-apk-v2
+          path: android_offline/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Publish APK to GitHub Release (Direct Download)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0-offline
+          name: "AGOS Smart Diagnostik v2.0.0 — APK Android Offline (174 Kode Mesin Asia/Eropa/China + Diesel/EV + PIN Admin + Logo Baru)"
+          body: "APK Android Full Offline v2.0.0 (pra-Poin 4) menggunakan logo ikon baru: mencakup 66 generasi & 174 kode mesin (Asia, Eropa, China termasuk Innova 1TR-FE/1TR-VE & Reborn 2GD-FTV), +85 DTC Diesel Common-Rail/Turbo/VVT/Hybrid/EV, Live Data Adaptif, Peringatan HV 1000V, Guardrail Wiring, Paket Manual Kustom, dan PIN Kepala Bengkel (awal: 1234) + Backup/Restore 1-Klik."
+          files: android_offline/AGOS-Smart-Diagnostik-Offline.apk
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
